@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DuoChat</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--cream:#faf7f2;--warm:#f0ebe1;--brown:#2c1810;--brown-light:#9c7b6e;--accent:#c8724a;--accent2:#7c9e87;--border:#e0d8cc;--shadow:rgba(44,24,16,0.08);}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--brown);height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 60% at 0% 0%,rgba(200,114,74,0.07) 0%,transparent 50%),radial-gradient(ellipse 60% 50% at 100% 100%,rgba(124,158,135,0.07) 0%,transparent 50%);pointer-events:none;}
+
+  #setup{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;background:var(--cream);padding:16px;}
+  #setup.gone{display:none;}
+  .card{background:white;border:1px solid var(--border);border-radius:24px;padding:36px 28px;width:100%;max-width:380px;box-shadow:0 8px 40px var(--shadow);animation:cardIn 0.45s cubic-bezier(0.34,1.56,0.64,1);}
+  @keyframes cardIn{from{opacity:0;transform:translateY(20px) scale(0.97)}to{opacity:1;transform:none}}
+  .brand{font-family:'DM Serif Display',serif;font-size:1.9rem;color:var(--brown);margin-bottom:2px;}
+  .brand span{color:var(--accent);}
+  .sub{font-size:0.82rem;color:var(--brown-light);margin-bottom:28px;font-weight:300;}
+  .lbl{font-size:0.68rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--brown-light);margin-bottom:8px;}
+  .inp{width:100%;padding:13px 16px;border:1.5px solid var(--border);border-radius:12px;font-family:'DM Sans',sans-serif;font-size:0.95rem;color:var(--brown);background:var(--cream);outline:none;transition:border-color 0.2s,box-shadow 0.2s;margin-bottom:18px;}
+  .inp:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(200,114,74,0.12);background:white;}
+  .inp::placeholder{color:var(--brown-light);}
+  .divider{display:flex;align-items:center;gap:12px;margin:18px 0;color:var(--brown-light);font-size:0.78rem;}
+  .divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border);}
+  .btn{width:100%;padding:14px;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:0.93rem;font-weight:600;cursor:pointer;transition:all 0.18s;margin-bottom:10px;}
+  .btn-p{background:var(--accent);color:white;box-shadow:0 4px 16px rgba(200,114,74,0.3);}
+  .btn-p:hover{opacity:0.9;transform:translateY(-1px);}
+  .btn-s{background:var(--warm);color:var(--brown);border:1.5px solid var(--border);}
+  .btn-s:hover{background:var(--border);}
+  .code-box{background:var(--warm);border:2px dashed var(--accent);border-radius:14px;padding:18px;text-align:center;cursor:pointer;margin-bottom:16px;transition:background 0.15s;}
+  .code-box:hover{background:#f5ede4;}
+  .code-lbl{font-size:0.66rem;font-weight:600;letter-spacing:1.2px;text-transform:uppercase;color:var(--brown-light);margin-bottom:8px;}
+  .code-val{font-family:'Courier New',monospace;font-size:1.8rem;font-weight:700;color:var(--accent);letter-spacing:6px;}
+  .code-hint{font-size:0.7rem;color:var(--brown-light);margin-top:6px;}
+  .dots{display:flex;justify-content:center;gap:6px;margin:14px 0;}
+  .dots span{width:9px;height:9px;border-radius:50%;background:var(--accent);animation:wb 1.4s ease infinite;}
+  .dots span:nth-child(2){animation-delay:0.2s;background:var(--brown-light);}
+  .dots span:nth-child(3){animation-delay:0.4s;background:var(--accent2);}
+  @keyframes wb{0%,60%,100%{transform:scale(0.7);opacity:0.4}30%{transform:scale(1.2);opacity:1}}
+  .st{text-align:center;font-size:0.8rem;color:var(--brown-light);min-height:20px;margin-top:4px;}
+  .st.err{color:#e05252;}
+
+  #chat{display:none;flex-direction:column;width:100%;max-width:680px;height:100vh;}
+  #chat.on{display:flex;}
+  .hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:white;border-bottom:1px solid var(--border);box-shadow:0 1px 8px var(--shadow);flex-shrink:0;}
+  .hdr-title{font-family:'DM Serif Display',serif;font-size:1.15rem;}
+  .hdr-title span{color:var(--accent);}
+  .pill{display:flex;align-items:center;gap:6px;background:var(--warm);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:0.72rem;font-weight:600;color:#5c3d2e;}
+  .gdot{width:7px;height:7px;border-radius:50%;background:var(--accent2);box-shadow:0 0 5px var(--accent2);animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}
+  #msgs{flex:1;overflow-y:auto;padding:20px 16px;display:flex;flex-direction:column;gap:3px;background:var(--cream);}
+  #msgs::-webkit-scrollbar{width:3px;}
+  #msgs::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+  .mrow{display:flex;flex-direction:column;animation:ms 0.22s ease;margin-bottom:8px;}
+  @keyframes ms{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .mrow.me{align-items:flex-end;}
+  .mrow.them{align-items:flex-start;}
+  .mname{font-size:0.68rem;font-weight:600;color:var(--brown-light);margin-bottom:4px;padding:0 4px;text-transform:uppercase;letter-spacing:0.8px;}
+  .bub{max-width:75%;padding:11px 15px;border-radius:18px;font-size:0.9rem;line-height:1.55;word-break:break-word;}
+  .bub.me{background:var(--accent);color:white;border-bottom-right-radius:4px;}
+  .bub.them{background:white;color:var(--brown);border:1px solid var(--border);border-bottom-left-radius:4px;box-shadow:0 2px 6px var(--shadow);}
+  .mtime{font-size:0.63rem;color:var(--brown-light);margin-top:3px;padding:0 4px;}
+  .sys{text-align:center;font-size:0.72rem;color:var(--brown-light);padding:6px 0;font-style:italic;}
+  #tybar{padding:0 16px 4px;font-size:0.76rem;color:var(--brown-light);min-height:20px;flex-shrink:0;font-style:italic;}
+  .irow{display:flex;align-items:flex-end;gap:8px;padding:10px 14px 18px;background:white;border-top:1px solid var(--border);flex-shrink:0;}
+  #minput{flex:1;min-height:42px;max-height:100px;padding:11px 15px;border:1.5px solid var(--border);border-radius:21px;font-family:'DM Sans',sans-serif;font-size:0.9rem;color:var(--brown);background:var(--cream);outline:none;resize:none;line-height:1.4;transition:border-color 0.2s,box-shadow 0.2s;}
+  #minput:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(200,114,74,0.1);background:white;}
+  #minput::placeholder{color:var(--brown-light);}
+  .sbtn{width:42px;height:42px;border-radius:50%;border:none;background:var(--accent);color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0;box-shadow:0 3px 10px rgba(200,114,74,0.35);}
+  .sbtn:hover{transform:scale(1.06);}
+  .sbtn:disabled{opacity:0.35;transform:none;cursor:default;}
+  .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--brown-light);font-size:0.84rem;text-align:center;}
+  .ei{font-size:2.6rem;margin-bottom:4px;}
+  .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--brown);color:white;padding:9px 18px;border-radius:20px;font-size:0.8rem;font-weight:500;opacity:0;pointer-events:none;transition:opacity 0.3s;z-index:999;}
+  .toast.on{opacity:1;}
+</style>
+</head>
+<body>
+
+<div id="setup">
+  <div class="card">
+    <div class="brand">Duo<span>Chat</span></div>
+    <div class="sub">A private room just for two. 🌿</div>
+
+    <div id="s1">
+      <div class="lbl">Your name</div>
+      <input class="inp" id="nmi" placeholder="Enter your name..." maxlength="18" autocomplete="off">
+      <button class="btn btn-p" onclick="create()">🔑 Create a room</button>
+      <div class="divider">or join your friend's room</div>
+      <div class="lbl">Friend's room code</div>
+      <input class="inp" id="ci" placeholder="Enter 6-letter code..." maxlength="6" autocomplete="off" style="text-transform:uppercase;letter-spacing:4px;margin-bottom:10px">
+      <button class="btn btn-s" onclick="joinRoom()">→ Join room</button>
+      <div class="st" id="jst"></div>
+    </div>
+
+    <div id="s2" style="display:none">
+      <div class="code-box" onclick="copyCode()">
+        <div class="code-lbl">Share this code with your friend</div>
+        <div class="code-val" id="rcode">------</div>
+        <div class="code-hint">👆 Tap to copy · send via WhatsApp</div>
+      </div>
+      <div class="dots"><span></span><span></span><span></span></div>
+      <div class="st" id="wst">Waiting for your friend to join...</div>
+    </div>
+  </div>
+</div>
+
+<div id="chat">
+  <div class="hdr">
+    <div class="hdr-title">Duo<span>Chat</span> 🌿</div>
+    <div class="pill">
+      <div class="gdot"></div>
+      <span id="clbl">Live</span>
+    </div>
+  </div>
+  <div id="msgs">
+    <div class="empty"><div class="ei">💬</div><div>Just the two of you.</div><div>Say hello!</div></div>
+  </div>
+  <div id="tybar"></div>
+  <div class="irow">
+    <textarea id="minput" placeholder="Type a message..." rows="1"></textarea>
+    <button class="sbtn" id="sbtn" onclick="send()" disabled>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://fkiclfhbzvsapfqlnyap.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZraWNsZmhienZzYXBmcWxueWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTc3NjcsImV4cCI6MjA5MTY3Mzc2N30.Sj16VxPCkNsESUNSojM6ARA8MjgetagUrvVwmx6GwCU';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let myName = '', roomId = '', lastId = 0;
+let typT, fTypT, channel;
+
+// ── Create room ──
+function create() {
+  const n = document.getElementById('nmi').value.trim();
+  if (!n) { document.getElementById('nmi').focus(); return; }
+  myName = n;
+  roomId = Math.random().toString(36).slice(2, 8).toUpperCase();
+  document.getElementById('rcode').textContent = roomId;
+  document.getElementById('s1').style.display = 'none';
+  document.getElementById('s2').style.display = 'block';
+  subscribeToRoom();
+}
+
+// ── Join room ──
+async function joinRoom() {
+  const n = document.getElementById('nmi').value.trim();
+  const c = document.getElementById('ci').value.trim().toUpperCase();
+  if (!n) { document.getElementById('nmi').focus(); return; }
+  if (c.length < 4) { setSt('jst', 'Please enter the room code.', 'err'); return; }
+  myName = n;
+  roomId = c;
+  setSt('jst', 'Joining...', '');
+  subscribeToRoom();
+  await postMsg('sys', myName + ' joined the chat 🌿');
+  openChat();
+}
+
+// ── Subscribe to real-time messages ──
+function subscribeToRoom() {
+  // Load existing messages first
+  loadHistory();
+
+  // Subscribe to new inserts
+  channel = sb.channel('room_' + roomId)
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'messages',
+      filter: 'room=eq.' + roomId
+    }, payload => {
+      const msg = payload.new;
+      if (msg.id <= lastId) return;
+      lastId = msg.id;
+      if (msg.sender === myName && msg.content !== '__typing_start__' && msg.content !== '__typing_stop__') return;
+      renderMsg(msg, false);
+    })
+    .on('broadcast', { event: 'typing' }, ({ payload }) => {
+      if (payload.name === myName) return;
+      document.getElementById('tybar').textContent = payload.typing ? payload.name + ' is typing...' : '';
+      clearTimeout(fTypT);
+      if (payload.typing) fTypT = setTimeout(() => document.getElementById('tybar').textContent = '', 3000);
+    })
+    .subscribe(status => {
+      if (status === 'SUBSCRIBED') {
+        // If host, open chat and post welcome
+        if (document.getElementById('s2') && document.getElementById('s2').style.display === 'block') {
+          openChat();
+          postMsg('sys', myName + ' created the room 🌿');
+        }
+      }
+    });
+}
+
+// ── Load history ──
+async function loadHistory() {
+  const { data } = await sb.from('messages').select('*').eq('room', roomId).order('id', { ascending: true });
+  if (!data) return;
+  data.forEach(msg => {
+    if (msg.id > lastId) lastId = msg.id;
+    renderMsg(msg, true);
+  });
+}
+
+// ── Post message to Supabase ──
+async function postMsg(type, text) {
+  await sb.from('messages').insert({ room: roomId, sender: myName, content: text });
+}
+
+// ── Send ──
+async function send() {
+  const inp = document.getElementById('minput');
+  const txt = inp.value.trim();
+  if (!txt) return;
+  inp.value = ''; inp.style.height = 'auto';
+  document.getElementById('sbtn').disabled = true;
+
+  // Optimistic render
+  renderOwn(myName, txt, new Date().toISOString());
+
+  // Send to Supabase
+  await sb.from('messages').insert({ room: roomId, sender: myName, content: txt });
+
+  // Stop typing
+  channel.send({ type: 'broadcast', event: 'typing', payload: { name: myName, typing: false } });
+}
+
+// ── Render message ──
+function renderMsg(msg, isHistory) {
+  if (msg.sender === myName && !isHistory) return; // already rendered optimistically
+  if (msg.content === '__typing_start__' || msg.content === '__typing_stop__') return;
+
+  clrEmpty();
+  const isMe = msg.sender === myName;
+  const isSys = msg.sender === 'sys' || msg.content.startsWith('__');
+
+  if (isSys || msg.sender === 'sys') {
+    addSys(msg.content);
+    return;
+  }
+
+  const row = document.createElement('div');
+  row.className = 'mrow ' + (isMe ? 'me' : 'them');
+  row.innerHTML = `
+    <div class="mname">${esc(msg.sender)}</div>
+    <div class="bub ${isMe ? 'me' : 'them'}">${esc(msg.content).replace(/\n/g, '<br>')}</div>
+    <div class="mtime">${fmt(msg.created_at)}</div>`;
+  app(row);
+}
+
+function renderOwn(name, txt, ts) {
+  clrEmpty();
+  const row = document.createElement('div');
+  row.className = 'mrow me';
+  row.innerHTML = `
+    <div class="mname">${esc(name)}</div>
+    <div class="bub me">${esc(txt).replace(/\n/g, '<br>')}</div>
+    <div class="mtime">${fmt(ts)}</div>`;
+  app(row);
+}
+
+function addSys(txt) {
+  clrEmpty();
+  const el = document.createElement('div');
+  el.className = 'sys'; el.textContent = txt; app(el);
+}
+
+function app(el) {
+  const c = document.getElementById('msgs');
+  c.appendChild(el); c.scrollTop = c.scrollHeight;
+}
+
+function clrEmpty() {
+  const e = document.getElementById('msgs').querySelector('.empty');
+  if (e) e.remove();
+}
+
+function openChat() {
+  document.getElementById('setup').classList.add('gone');
+  document.getElementById('chat').classList.add('on');
+  document.getElementById('minput').focus();
+}
+
+function esc(t) {
+  if (!t) return '';
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function fmt(ts) {
+  return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function copyCode() {
+  navigator.clipboard ? navigator.clipboard.writeText(roomId).then(() => showToast('Code copied! Send to your friend 📋'))
+    : prompt('Copy this code:', roomId);
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('on');
+  setTimeout(() => t.classList.remove('on'), 2800);
+}
+
+function setSt(id, msg, cls) {
+  const e = document.getElementById(id);
+  e.textContent = msg; e.className = 'st ' + (cls || '');
+}
+
+// ── Input listeners ──
+document.addEventListener('DOMContentLoaded', () => {
+  const inp = document.getElementById('minput');
+
+  inp.addEventListener('input', () => {
+    document.getElementById('sbtn').disabled = !inp.value.trim();
+    inp.style.height = 'auto';
+    inp.style.height = Math.min(inp.scrollHeight, 100) + 'px';
+    if (channel) {
+      channel.send({ type: 'broadcast', event: 'typing', payload: { name: myName, typing: true } });
+      clearTimeout(typT);
+      typT = setTimeout(() => channel.send({ type: 'broadcast', event: 'typing', payload: { name: myName, typing: false } }), 2500);
+    }
+  });
+
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+
+  document.getElementById('nmi').addEventListener('keydown', e => { if (e.key === 'Enter') create(); });
+
+  document.getElementById('ci').addEventListener('input', e => {
+    e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  });
+});
+</script>
+</body>
+</html>

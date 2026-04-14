@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>DuoChat</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--cream:#faf7f2;--warm:#f0ebe1;--brown:#2c1810;--brown-light:#9c7b6e;--accent:#c8724a;--accent2:#7c9e87;--border:#e0d8cc;--shadow:rgba(44,24,16,0.08);}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:100%;height:100%;overflow:hidden;}
+  body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--brown);}
+  .page{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:var(--cream);}
+  .page.hidden{display:none;}
+  .card{background:white;border:1px solid var(--border);border-radius:24px;padding:36px 28px;width:100%;max-width:380px;box-shadow:0 8px 40px var(--shadow);}
+  .brand{font-family:'DM Serif Display',serif;font-size:1.9rem;color:var(--brown);margin-bottom:2px;}
+  .brand span{color:var(--accent);}
+  .sub{font-size:0.82rem;color:var(--brown-light);margin-bottom:24px;font-weight:300;}
+  .lbl{font-size:0.68rem;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--brown-light);margin-bottom:8px;}
+  .inp{width:100%;padding:13px 16px;border:1.5px solid var(--border);border-radius:12px;font-family:'DM Sans',sans-serif;font-size:0.95rem;color:var(--brown);background:var(--cream);outline:none;transition:border-color 0.2s;margin-bottom:18px;}
+  .inp:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(200,114,74,0.12);background:white;}
+  .inp::placeholder{color:var(--brown-light);}
+  .btn{width:100%;padding:14px;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:0.93rem;font-weight:600;cursor:pointer;transition:all 0.18s;margin-bottom:10px;}
+  .btn-p{background:var(--accent);color:white;box-shadow:0 4px 16px rgba(200,114,74,0.3);}
+  .btn-p:hover{opacity:0.9;}
+  .st{text-align:center;font-size:0.8rem;color:var(--brown-light);min-height:20px;margin-top:4px;}
+  .st.err{color:#e05252;}
+  .tip{background:var(--warm);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:20px;font-size:0.8rem;color:var(--brown-light);line-height:1.6;}
+  .tip strong{color:var(--brown);display:block;margin-bottom:3px;}
+
+  /* CHAT */
+  #pgChat{flex-direction:column;align-items:stretch;justify-content:flex-start;padding:0;}
+  .hdr{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:white;border-bottom:1px solid var(--border);box-shadow:0 1px 8px var(--shadow);flex-shrink:0;}
+  .hdr-left{display:flex;flex-direction:column;}
+  .hdr-title{font-family:'DM Serif Display',serif;font-size:1.1rem;}
+  .hdr-title span{color:var(--accent);}
+  .hdr-room{font-size:0.7rem;color:var(--brown-light);margin-top:1px;}
+  .hdr-right{display:flex;align-items:center;gap:8px;}
+  .pill{display:flex;align-items:center;gap:6px;background:var(--warm);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:0.72rem;font-weight:600;color:#5c3d2e;}
+  .gdot{width:7px;height:7px;border-radius:50%;background:var(--accent2);box-shadow:0 0 5px var(--accent2);animation:pulse 2s infinite;}
+  .gdot.err{background:#e05252;box-shadow:0 0 5px #e05252;animation:none;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+
+  /* Leave button */
+  .leave-btn{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--border);background:var(--warm);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;transition:all 0.15s;flex-shrink:0;}
+  .leave-btn:hover{background:#ffe5e5;border-color:#e05252;}
+
+  /* Confirm overlay */
+  .overlay{position:fixed;inset:0;background:rgba(44,24,16,0.4);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .overlay.hidden{display:none;}
+  .confirm-box{background:white;border-radius:20px;padding:28px 24px;width:100%;max-width:320px;box-shadow:0 8px 40px var(--shadow);text-align:center;}
+  .confirm-box h3{font-family:'DM Serif Display',serif;font-size:1.3rem;margin-bottom:8px;}
+  .confirm-box p{font-size:0.85rem;color:var(--brown-light);margin-bottom:24px;line-height:1.5;}
+  .confirm-btns{display:flex;gap:10px;}
+  .confirm-btns button{flex:1;padding:12px;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:0.9rem;font-weight:600;cursor:pointer;transition:all 0.15s;}
+  .btn-cancel{background:var(--warm);color:var(--brown);border:1.5px solid var(--border);}
+  .btn-leave{background:#e05252;color:white;}
+  .btn-leave:hover{opacity:0.9;}
+
+  #msgs{flex:1;overflow-y:auto;padding:20px 16px;display:flex;flex-direction:column;gap:3px;background:var(--cream);}
+  #msgs::-webkit-scrollbar{width:3px;}
+  #msgs::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+  .mrow{display:flex;flex-direction:column;margin-bottom:8px;animation:ms 0.2s ease;}
+  @keyframes ms{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+  .mrow.me{align-items:flex-end;}
+  .mrow.them{align-items:flex-start;}
+  .mname{font-size:0.68rem;font-weight:600;color:var(--brown-light);margin-bottom:4px;padding:0 4px;text-transform:uppercase;letter-spacing:0.8px;}
+  .bub{max-width:75%;padding:11px 15px;border-radius:18px;font-size:0.9rem;line-height:1.55;word-break:break-word;}
+  .bub.me{background:var(--accent);color:white;border-bottom-right-radius:4px;}
+  .bub.them{background:white;color:var(--brown);border:1px solid var(--border);border-bottom-left-radius:4px;box-shadow:0 2px 6px var(--shadow);}
+  .mtime{font-size:0.63rem;color:var(--brown-light);margin-top:3px;padding:0 4px;}
+  .sys{text-align:center;font-size:0.72rem;color:var(--brown-light);padding:6px 0;font-style:italic;}
+  #tybar{padding:0 16px 4px;font-size:0.76rem;color:var(--brown-light);min-height:20px;flex-shrink:0;font-style:italic;}
+  .irow{display:flex;align-items:flex-end;gap:8px;padding:10px 14px 18px;background:white;border-top:1px solid var(--border);flex-shrink:0;}
+  #minput{flex:1;min-height:42px;max-height:100px;padding:11px 15px;border:1.5px solid var(--border);border-radius:21px;font-family:'DM Sans',sans-serif;font-size:0.9rem;color:var(--brown);background:var(--cream);outline:none;resize:none;line-height:1.4;transition:border-color 0.2s;}
+  #minput:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(200,114,74,0.1);background:white;}
+  #minput::placeholder{color:var(--brown-light);}
+  .sbtn{width:42px;height:42px;border-radius:50%;border:none;background:var(--accent);color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0;box-shadow:0 3px 10px rgba(200,114,74,0.35);}
+  .sbtn:hover{transform:scale(1.06);}
+  .sbtn:disabled{opacity:0.35;transform:none;cursor:default;}
+  .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--brown-light);font-size:0.84rem;text-align:center;padding:20px;}
+  .ei{font-size:2.6rem;margin-bottom:4px;}
+  .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--brown);color:white;padding:9px 18px;border-radius:20px;font-size:0.8rem;font-weight:500;opacity:0;pointer-events:none;transition:opacity 0.3s;z-index:999;}
+  .toast.on{opacity:1;}
+</style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div class="page" id="pgSetup">
+  <div class="card">
+    <div class="brand">Duo<span>Chat</span></div>
+    <div class="sub">Private chat for two 🌿</div>
+    <div class="tip">
+      <strong>How to use:</strong>
+      Both you and your friend type the <em>same room name</em> to connect!
+    </div>
+    <div class="lbl">Your name</div>
+    <input class="inp" id="nmi" placeholder="e.g. Varad" maxlength="18" autocomplete="off">
+    <div class="lbl">Room name</div>
+    <input class="inp" id="rmi" placeholder="e.g. varad-papa" maxlength="30" autocomplete="off" style="margin-bottom:10px">
+    <button class="btn btn-p" id="enterBtn" onclick="enterRoom()">💬 Enter room</button>
+    <div class="st" id="jst"></div>
+  </div>
+</div>
+
+<!-- CHAT -->
+<div class="page hidden" id="pgChat">
+  <div class="hdr">
+    <div class="hdr-left">
+      <div class="hdr-title">Duo<span>Chat</span></div>
+      <div class="hdr-room" id="hdrRoom"># —</div>
+    </div>
+    <div class="hdr-right">
+      <div class="pill">
+        <div class="gdot" id="gdot"></div>
+        <span id="connLabel">Live</span>
+      </div>
+      <!-- Leave button -->
+      <button class="leave-btn" onclick="confirmLeave()" title="Leave room">🚪</button>
+    </div>
+  </div>
+  <div id="msgs">
+    <div class="empty"><div class="ei">💬</div><div>You're in!</div><div>Waiting for your friend...</div></div>
+  </div>
+  <div id="tybar"></div>
+  <div class="irow">
+    <textarea id="minput" placeholder="Type a message..." rows="1"></textarea>
+    <button class="sbtn" id="sbtn" onclick="send()" disabled>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<!-- Confirm leave overlay -->
+<div class="overlay hidden" id="overlay">
+  <div class="confirm-box">
+    <h3>Leave room?</h3>
+    <p>You'll go back to the home screen. Your chat history will still be there when you rejoin.</p>
+    <div class="confirm-btns">
+      <button class="btn-cancel" onclick="cancelLeave()">Stay</button>
+      <button class="btn-leave" onclick="leaveRoom()">Leave 🚪</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const BASE = 'https://fkiclfhbzvsapfqlnyap.supabase.co/rest/v1';
+const KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZraWNsZmhienZzYXBmcWxueWFwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTc3NjcsImV4cCI6MjA5MTY3Mzc2N30.Sj16VxPCkNsESUNSojM6ARA8MjgetagUrvVwmx6GwCU';
+const H = {'apikey':KEY,'Authorization':'Bearer '+KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+
+let myName='', roomId='', lastId=0, rendered=new Set(), pollTimer=null;
+
+async function apiGet(path){ const r=await fetch(BASE+path,{headers:H}); if(!r.ok) throw new Error(r.status); return r.json(); }
+async function apiPost(path,body){ const r=await fetch(BASE+path,{method:'POST',headers:H,body:JSON.stringify(body)}); if(!r.ok) throw new Error(r.status); return r.json(); }
+
+async function enterRoom() {
+  const n=document.getElementById('nmi').value.trim();
+  const r=document.getElementById('rmi').value.trim().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+  if(!n){document.getElementById('nmi').focus();return;}
+  if(!r){document.getElementById('rmi').focus();return;}
+  myName=n; roomId=r;
+  document.getElementById('enterBtn').textContent='Connecting...';
+  document.getElementById('enterBtn').disabled=true;
+  try {
+    await apiPost('/messages',{room:roomId,sender:myName,content:'__joined__'});
+    const data=await apiGet(`/messages?room=eq.${encodeURIComponent(roomId)}&order=id.asc`);
+    data.forEach(msg=>{ if(msg.id>lastId) lastId=msg.id; renderMsg(msg,true); });
+    document.getElementById('hdrRoom').textContent='# '+roomId;
+    document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));
+    document.getElementById('pgChat').classList.remove('hidden');
+    scrollBottom();
+    setTimeout(()=>document.getElementById('minput').focus(),200);
+    pollTimer=setInterval(poll,1000);
+  } catch(e) {
+    document.getElementById('enterBtn').textContent='💬 Enter room';
+    document.getElementById('enterBtn').disabled=false;
+    setSt('jst','Connection failed. Check internet.','err');
+  }
+}
+
+async function poll() {
+  try {
+    const data=await apiGet(`/messages?room=eq.${encodeURIComponent(roomId)}&id=gt.${lastId}&order=id.asc`);
+    if(!data||data.length===0) return;
+    let hasNew=false;
+    data.forEach(msg=>{ if(msg.id>lastId) lastId=msg.id; if(!rendered.has(msg.id)){renderMsg(msg,false);hasNew=true;} });
+    if(hasNew) scrollBottom();
+    document.getElementById('gdot').classList.remove('err');
+    document.getElementById('connLabel').textContent='Live';
+  } catch(e) {
+    document.getElementById('gdot').classList.add('err');
+    document.getElementById('connLabel').textContent='Reconnecting...';
+  }
+}
+
+async function send() {
+  const inp=document.getElementById('minput');
+  const txt=inp.value.trim();
+  if(!txt) return;
+  inp.value=''; inp.style.height='auto';
+  document.getElementById('sbtn').disabled=true;
+  const fakeId='f_'+Date.now(); rendered.add(fakeId);
+  addBubble('me',myName,txt,new Date().toISOString());
+  scrollBottom();
+  try {
+    const data=await apiPost('/messages',{room:roomId,sender:myName,content:txt});
+    const saved=Array.isArray(data)?data[0]:data;
+    if(saved&&saved.id){ rendered.add(saved.id); if(saved.id>lastId) lastId=saved.id; }
+  } catch(e){ showToast('Failed to send. Try again.'); }
+}
+
+// ── Leave room ──
+function confirmLeave() { document.getElementById('overlay').classList.remove('hidden'); }
+function cancelLeave()  { document.getElementById('overlay').classList.add('hidden'); }
+function leaveRoom() {
+  clearInterval(pollTimer);
+  pollTimer=null;
+  myName=''; roomId=''; lastId=0;
+  rendered=new Set();
+  // Reset chat
+  document.getElementById('msgs').innerHTML='<div class="empty"><div class="ei">💬</div><div>You\'re in!</div><div>Waiting for your friend...</div></div>';
+  document.getElementById('minput').value='';
+  document.getElementById('tybar').textContent='';
+  document.getElementById('nmi').value='';
+  document.getElementById('rmi').value='';
+  document.getElementById('enterBtn').textContent='💬 Enter room';
+  document.getElementById('enterBtn').disabled=false;
+  document.getElementById('overlay').classList.add('hidden');
+  document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));
+  document.getElementById('pgSetup').classList.remove('hidden');
+}
+
+function renderMsg(msg,isHistory) {
+  if(rendered.has(msg.id)) return;
+  rendered.add(msg.id);
+  if(msg.content==='__joined__'){if(msg.sender!==myName)addSys(msg.sender+' joined 🌿');return;}
+  addBubble(msg.sender===myName?'me':'them',msg.sender,msg.content,msg.created_at);
+}
+
+function addBubble(side,name,txt,ts) {
+  clrEmpty();
+  const row=document.createElement('div');
+  row.className='mrow '+side;
+  row.innerHTML=`<div class="mname">${esc(name)}</div><div class="bub ${side}">${esc(txt).replace(/\n/g,'<br>')}</div><div class="mtime">${fmt(ts)}</div>`;
+  document.getElementById('msgs').appendChild(row);
+}
+
+function addSys(txt) {
+  clrEmpty();
+  const el=document.createElement('div');
+  el.className='sys'; el.textContent=txt;
+  document.getElementById('msgs').appendChild(el);
+}
+
+function clrEmpty(){ const e=document.getElementById('msgs').querySelector('.empty'); if(e)e.remove(); }
+function scrollBottom(){ const c=document.getElementById('msgs'); c.scrollTop=c.scrollHeight; }
+function esc(t){ if(!t)return''; return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmt(ts){ return new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+function setSt(id,msg,cls){ const e=document.getElementById(id); e.textContent=msg; e.className='st '+(cls||''); }
+function showToast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('on'); setTimeout(()=>t.classList.remove('on'),2800); }
+
+document.addEventListener('DOMContentLoaded',()=>{
+  const inp=document.getElementById('minput');
+  inp.addEventListener('input',()=>{
+    document.getElementById('sbtn').disabled=!inp.value.trim();
+    inp.style.height='auto';
+    inp.style.height=Math.min(inp.scrollHeight,100)+'px';
+  });
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();} });
+  document.getElementById('nmi').addEventListener('keydown',e=>{ if(e.key==='Enter')document.getElementById('rmi').focus(); });
+  document.getElementById('rmi').addEventListener('keydown',e=>{ if(e.key==='Enter')enterRoom(); });
+});
+</script>
+</body>
+</html>
